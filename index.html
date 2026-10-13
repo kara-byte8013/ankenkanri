@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B4C9C">
+<title>案件管理</title>
+<style>
+:root{
+  --ink:#10243E; --sub:#5B6F8A; --blue:#2563C9; --blue-d:#1B4C9C; --tint:#EEF4FC; --tint2:#D6E4F8;
+  --line:#D8E3F2; --bg:#F4F7FC; --card:#fff; --hi:#C93A32; --mid:#B97800; --lo:#4F78A8; --ok:#25885A;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid #7FA9EE;outline-offset:2px}
+
+/* header */
+header.top{position:sticky;top:0;z-index:20;background:var(--blue-d);color:#fff;padding:calc(10px + var(--safe-t)) 16px 10px;display:flex;align-items:center;gap:10px}
+header.top h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.04em;flex:1}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.16);white-space:nowrap}
+.pill.ok{background:rgba(120,224,172,.25)} .pill.err{background:rgba(255,150,140,.35)} .pill.busy{background:rgba(255,255,255,.28)}
+.hbtn{background:rgba(255,255,255,.14);border:0;color:#fff;padding:7px 12px;border-radius:8px;font-size:14px}
+.hbtn:hover{background:rgba(255,255,255,.25)}
+
+main{max-width:1040px;margin:0 auto;padding:16px 14px calc(96px + var(--safe-b))}
+
+/* reminder banner */
+#banner:empty{display:none}
+#banner{max-width:1040px;margin:12px auto 0;padding:0 14px}
+.remind{background:#FFF6E0;border:1px solid #F0D58A;border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.remind b{color:#8A5A00}
+.remind .rt{flex:1;min-width:0;cursor:pointer}
+.remind .rt small{display:block;color:#7A6A40}
+.remind button{border:1px solid #D9B85C;background:#fff;border-radius:8px;padding:5px 10px;font-size:13px}
+
+/* toolbar */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.toolbar input[type=search]{flex:1 1 180px;min-width:0}
+.toolbar input,.toolbar select{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.count{color:var(--sub);font-size:13px;margin:0 2px 8px}
+
+/* list */
+.row{display:grid;grid-template-columns:minmax(0,1.6fr) auto auto 120px minmax(110px,150px);gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--lo);border-radius:12px;padding:12px 16px;margin-bottom:10px;cursor:pointer}
+.row:hover{border-color:#A9C3EA;box-shadow:0 2px 10px rgba(37,99,201,.10)}
+.row.p-高{border-left-color:var(--hi)} .row.p-中{border-left-color:#E0A21A} .row.p-低{border-left-color:var(--lo)}
+.cust{font-size:12.5px;color:var(--sub)}
+.pname{font-weight:700;font-size:16px;overflow-wrap:anywhere}
+.chip{display:inline-block;font-size:12.5px;padding:2px 10px;border-radius:99px;white-space:nowrap;font-weight:600}
+.pri-高{color:#A52E27;background:#FCE8E6} .pri-中{color:#8F5F00;background:#FFF1CF} .pri-低{color:#3C6392;background:#E3EDF9}
+.st-未着手{color:#4B5B72;background:#E8EDF4} .st-進行中{color:#1B4C9C;background:#DCE9FC} .st-保留{color:#8F5F00;background:#FFF1CF} .st-完了{color:#1C6D47;background:#DDF3E8}
+.due{font-size:13.5px;line-height:1.35}
+.due small{display:block;color:var(--sub)} .due small.over{color:var(--hi);font-weight:700} .due small.soon{color:var(--mid);font-weight:700}
+.meter{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub)}
+.meter .bar{flex:1;height:8px;border-radius:8px;background:var(--tint2);overflow:hidden}
+.meter .bar i{display:block;height:100%;background:var(--blue)}
+.empty{text-align:center;color:var(--sub);padding:48px 16px;background:#fff;border:1px dashed #B9CCE8;border-radius:12px}
+.empty p{margin:0 0 14px}
+
+@media (max-width:720px){
+  .row{grid-template-columns:1fr auto;gap:6px 10px;padding:12px 14px}
+  .row .c-main{grid-column:1/-1}
+  .row .c-pri{grid-column:1} .row .c-st{grid-column:2;justify-self:end;grid-row:2}
+  .row .c-due{grid-column:1;grid-row:3}
+  .row .meter{grid-column:2;grid-row:3;min-width:110px}
+  .row .c-pri{grid-row:2}
+}
+
+/* buttons */
+.btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 16px;font-weight:600}
+.btn:hover{background:var(--tint)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:var(--blue-d)}
+.btn.danger{color:var(--hi);border-color:#EBC3BF;background:#fff}
+.btn.sm{padding:6px 12px;font-size:13.5px}
+.fab{position:fixed;right:16px;bottom:calc(16px + var(--safe-b));z-index:15;background:var(--blue);color:#fff;border:0;border-radius:99px;padding:14px 22px;font-weight:700;font-size:15.5px;box-shadow:0 6px 18px rgba(27,76,156,.35)}
+.fab:hover{background:var(--blue-d)}
+
+/* detail */
+.back{background:none;border:0;color:var(--blue);padding:4px 0;margin-bottom:6px;font-weight:600}
+.head{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.head h2{margin:2px 0 8px;font-size:20px;overflow-wrap:anywhere}
+.head .meta{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:14px;color:var(--sub)}
+.head .memo{margin:10px 0 0;white-space:pre-wrap;font-size:14px;background:var(--tint);border-radius:8px;padding:8px 10px}
+.head .hr{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+
+.gtools{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.gtools .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.gtools .seg button{border:0;background:none;padding:7px 12px;font-size:13.5px}
+.gtools .seg button.on{background:var(--blue);color:#fff}
+.gtools .sp{flex:1}
+
+.gantt{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:70vh}
+.gi{position:relative}
+.gh{display:flex;position:sticky;top:0;z-index:6;background:#F0F5FC;border-bottom:1px solid var(--line)}
+.corner{position:sticky;left:0;z-index:7;background:#F0F5FC;border-right:1px solid var(--line);padding:0 12px;display:flex;align-items:flex-end;padding-bottom:6px;font-size:12.5px;color:var(--sub);flex:none}
+.gt{position:relative;flex:none}
+.mo{position:absolute;top:4px;font-size:12px;font-weight:700;color:var(--blue-d);white-space:nowrap;padding-left:4px}
+.dy{position:absolute;bottom:0;text-align:center;font-size:11.5px;color:var(--sub);height:26px;line-height:13px;padding-top:2px;border-left:1px solid #E3EBF7;overflow:visible;white-space:nowrap}
+.dy.we{color:#B0594F;background:#F8EEEE} .dy.td{background:var(--blue);color:#fff;border-radius:6px 6px 0 0;font-weight:700}
+.gbg{position:absolute;z-index:1;pointer-events:none}
+.gbg .c{position:absolute;top:0;bottom:0;border-left:1px solid #EEF3FA}
+.gbg .c.we{background:#F7F9FD}
+.gbg .c.td{background:rgba(37,99,201,.07)}
+.gbg .tl{position:absolute;top:0;bottom:0;width:2px;background:#E5544A}
+.gr{display:flex;border-bottom:1px solid #EAF0F9;position:relative;z-index:2;cursor:pointer}
+.gr:hover .gl{background:var(--tint)}
+.gl{position:sticky;left:0;z-index:4;background:#fff;border-right:1px solid var(--line);padding:5px 8px 5px 12px;flex:none;display:flex;flex-direction:row;align-items:center;gap:6px;min-width:0}
+.gtx{flex:1;min-width:0;display:flex;flex-direction:column}
+.gtx b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtx small{color:var(--sub);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gl.pj,.gl.par{background:#F3F7FD}
+.gl.kid{padding-left:22px}
+.dot{width:10px;height:10px;border-radius:3px;flex:none}
+.addkid{flex:none;width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--blue);font-weight:700;line-height:1;padding:0}
+.addkid:hover{background:var(--tint)}
+.gbar{--c:#17407F;position:absolute;top:10px;height:24px;border-radius:7px;background:#D3DDEE;background:color-mix(in srgb,var(--c) 26%,#fff);overflow:hidden;display:flex;align-items:center}
+.gbar i{position:absolute;left:0;top:0;bottom:0;background:var(--c)}
+.gbar span{position:relative;font-size:11.5px;color:var(--ink);font-weight:700;background:rgba(255,255,255,.88);padding:0 5px;margin-left:5px;border-radius:5px;white-space:nowrap;line-height:17px}
+.gbar.late{outline:2px solid #E5544A;outline-offset:-2px}
+.gbar.pjb{--c:#7E93B3;top:15px;height:14px;border-radius:4px}
+.gbar.allday{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 6px,transparent 6px 12px)}
+.gempty{padding:28px 16px;text-align:center;color:var(--sub)}
+
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(16,36,62,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+.md{background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:92vh;max-height:92dvh;overflow:auto;padding:18px 18px 16px}
+.md>.acts:last-child{position:sticky;bottom:0;background:#fff;padding:10px 0 4px;margin-top:10px;border-top:1px solid var(--line)}
+.ferr{background:#FDECEA;color:#A52E27;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:14px;font-weight:600}
+.md h3{margin:0 0 12px;font-size:18px}
+.f{margin-bottom:12px}
+.f label{display:block;font-size:13px;font-weight:600;color:var(--sub);margin-bottom:4px}
+.f input,.f select,.f textarea{width:100%;background:#fff;border:1px solid #C5D5EC;border-radius:10px;padding:10px 12px;font-size:16px}
+.f textarea{min-height:76px;resize:vertical}
+.f .hint{font-size:12px;color:var(--sub);margin-top:3px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}
+.acts .l{margin-right:auto}
+.sect{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.sect h4{margin:0 0 8px;font-size:14.5px}
+.note{font-size:12.5px;color:var(--sub);margin:4px 0 10px}
+@media (max-width:560px){
+  .ov{align-items:flex-end;padding:0}
+  .md{border-radius:18px 18px 0 0;max-height:94vh;max-height:94dvh;padding-bottom:calc(10px + var(--safe-b))}
+}
+#toast{position:fixed;left:50%;bottom:calc(84px + var(--safe-b));transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:10px;font-size:13.5px;z-index:70;max-width:90vw;display:none}
+
+[hidden]{display:none!important}
+.dy[data-action]{cursor:pointer}
+.dy[data-action]:hover{background:var(--tint2);color:var(--ink)}
+.hint2{font-size:12.5px;color:var(--sub);margin:0 2px 8px}
+.dayttl{margin:4px 2px 10px;font-size:17px}
+.dayttl small{font-weight:400;color:var(--sub);margin-left:10px;font-size:13px}
+.sws{display:flex;flex-wrap:wrap;gap:10px}
+.sw{position:relative;display:block;width:34px;height:34px}
+.sw input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.sw span{display:block;width:100%;height:100%;border-radius:10px;border:3px solid #fff;box-shadow:0 0 0 1px #C5D5EC}
+.sw input:checked+span{box-shadow:0 0 0 3px var(--ink)}
+.sw input:focus-visible+span{outline:3px solid #7FA9EE;outline-offset:2px}
+.printonly{display:none}
+.pdate{font-size:12px;color:var(--sub);margin-bottom:6px}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  html,body{background:#fff}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px}
+  header.top,#fabWrap,#banner,.toolbar,.gtools,.back,.head .btn,#toast,.ov,.hint2,.addkid{display:none!important}
+  .printonly{display:block}
+  main{max-width:none;padding:0}
+  .gantt{overflow:hidden;max-height:none;border:1px solid #aab}
+  .gh,.corner,.gl{position:static}
+  .row,.head{break-inside:avoid;box-shadow:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>案件管理</h1>
+  <span class="pill" id="syncState" style="display:none"></span>
+  <button class="hbtn" data-action="settings">設定・同期</button>
+</header>
+<div id="banner"></div>
+<main id="app"></main>
+<div id="fabWrap"></div>
+<div id="toast"></div>
+
+<script>
+/* ========== ユーティリティ ========== */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const pd=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
+const dd=(a,b)=>Math.round((pd(b)-pd(a))/864e5);
+const today=()=>ymd(new Date());
+const addDays=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return ymd(d)};
+const fmt=s=>s?`${+s.slice(5,7)}/${+s.slice(8)}`:'未設定';
+const fmtDT=s=>{if(!s)return'';const d=new Date(s);return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`};
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+const b64enc=s=>{const b=new TextEncoder().encode(s);let bin='';b.forEach(x=>bin+=String.fromCharCode(x));return btoa(bin)};
+const b64dec=s=>{const bin=atob(s);return new TextDecoder().decode(Uint8Array.from(bin,c=>c.charCodeAt(0)))};
+function toast(msg){
+  const t=$('#toast');t.textContent=msg;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3200);
+  /* 入力画面が開いているときは、画面の一番上にもエラーを表示（スマホで見逃さないため） */
+  const f=document.querySelector('#ov form');
+  if(f){let e=f.querySelector('.ferr');if(!e){e=document.createElement('div');e.className='ferr';e.setAttribute('role','alert');f.insertBefore(e,f.children[1]||null)}
+    e.textContent=msg;try{f.scrollTo({top:0,behavior:'smooth'})}catch(x){f.scrollTop=0}}
+}
+
+const PRI=['高','中','低'], STA=['未着手','進行中','保留','完了'];
+const PORD={高:0,中:1,低:2};
+
+/* ========== データ ========== */
+const KEY='anken-data-v1', CFGKEY='anken-sync-v1';
+function loadDB(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.projects))return d}catch(e){}return{projects:[],updatedAt:0}}
+function loadCfg(){try{return JSON.parse(localStorage.getItem(CFGKEY))||{}}catch(e){return{}}}
+let db=loadDB(), cfg=loadCfg();
+const saveCfg=()=>{try{localStorage.setItem(CFGKEY,JSON.stringify(cfg))}catch(e){}};
+const synced=()=>cfg.token&&cfg.owner&&cfg.repo;
+function save(){
+  db.updatedAt=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){toast('この端末に保存できませんでした')}
+  if(synced()){cfg.dirty=true;saveCfg();scheduleSync()}
+}
+const getP=id=>db.projects.find(p=>p.id===id);
+const pdate=()=>new Date().toLocaleDateString('ja-JP');
+/* 子工程の色パレット（親工程は全て同じ濃い青で表示） */
+const PAL=['#0E9AA7','#7A5AC8','#D96A1F','#2E9C6A','#C94A8A','#A67C00','#2F8FD8','#5A6B85'];
+const kids=(p,id)=>(p.tasks||[]).filter(t=>t.parentId===id);
+const tops=p=>(p.tasks||[]).filter(t=>!t.parentId||!p.tasks.some(x=>x.id===t.parentId));
+const leaves=p=>(p.tasks||[]).filter(t=>!p.tasks.some(x=>x.parentId===t.id));
+/* 親工程は子工程から日程・進捗を自動計算 */
+function eff(p,t){
+  const k=kids(p,t.id);
+  if(!k.length)return{start:t.start||'',end:t.end||'',progress:+t.progress||0};
+  const ss=k.map(x=>x.start).filter(Boolean).sort(), ee=k.map(x=>x.end).filter(Boolean).sort();
+  return{start:ss[0]||'',end:ee[ee.length-1]||'',progress:Math.round(k.reduce((a,x)=>a+(+x.progress||0),0)/k.length)};
+}
+function ganttRows(p){
+  const out=[];
+  tops(p).forEach(t=>{
+    const k=kids(p,t.id);
+    out.push({t,par:k.length>0,kid:false,e:eff(p,t)});
+    k.forEach(c=>out.push({t:c,par:false,kid:true,e:eff(p,c)}));
+  });
+  return out;
+}
+const prog=p=>{const l=leaves(p);return l.length?Math.round(l.reduce((a,t)=>a+(+t.progress||0),0)/l.length):(+p.progress||0)};
+/* 時刻 */
+const tm=s=>{const[h,m]=s.split(':').map(Number);return h*60+m};
+const hm=n=>n>=1440?'24:00':`${Math.floor(n/60)}:${pad(n%60)}`;
+/* ある日（date）に工程が占める時間帯（分）。時刻未入力なら終日 */
+function segFor(t,date){
+  if(!t.start||!t.end||date<t.start||date>t.end)return null;
+  const st=t.startTime||'',et=t.endTime||'';
+  if(!st&&!et)return{s:0,e:1440,all:true};
+  let s=0,e=1440;
+  if(t.timeMode==='span'){ if(date===t.start&&st)s=tm(st); if(date===t.end&&et)e=tm(et); }
+  else{ if(st)s=tm(st); if(et)e=tm(et); }
+  if(e<=s)e=Math.min(1440,s+60);
+  return{s,e,all:false};
+}
+
+/* ========== 画面状態 ========== */
+const state={view:'list',pid:null,day:null,filter:'open',q:'',sort:'due',zoom:20};
+
+/* ========== 一覧 ========== */
+function dueText(p){
+  if(p.status==='完了')return {t:'完了',c:''};
+  if(!p.due)return {t:'',c:''};
+  const d=dd(today(),p.due);
+  if(d<0)return {t:`${-d}日超過`,c:'over'};
+  if(d===0)return {t:'今日まで',c:'soon'};
+  return {t:`あと${d}日`,c:d<=3?'soon':''};
+}
+function renderList(){
+  $('#app').innerHTML=`
+    <div class="printonly pdate">案件一覧　出力日：${pdate()}</div>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="顧客名・案件名で検索" value="${esc(state.q)}">
+      <select id="flt">${[['open','未完了'],['all','すべて'],...STA.map(s=>[s,s])].map(([v,l])=>`<option value="${v}" ${state.filter===v?'selected':''}>${l}</option>`).join('')}</select>
+      <select id="srt">${[['due','期限が近い順'],['pri','優先度順'],['upd','更新が新しい順']].map(([v,l])=>`<option value="${v}" ${state.sort===v?'selected':''}>${l}</option>`).join('')}</select>
+      <button class="btn sm" data-action="print">印刷・PDF保存</button>
+    </div>
+    <div id="lb"></div>`;
+  renderListBody();
+  fab('new','＋ 新規案件');
+}
+function renderListBody(){
+  let ps=db.projects.slice();
+  const f=state.filter;
+  ps=ps.filter(p=>f==='all'||(f==='open'?p.status!=='完了':p.status===f));
+  if(state.q){const q=state.q.toLowerCase();ps=ps.filter(p=>(p.customer+' '+p.name+' '+(p.memo||'')).toLowerCase().includes(q))}
+  const far='9999-99-99';
+  if(state.sort==='due')ps.sort((a,b)=>(a.due||far).localeCompare(b.due||far));
+  else if(state.sort==='pri')ps.sort((a,b)=>PORD[a.priority]-PORD[b.priority]||(a.due||far).localeCompare(b.due||far));
+  else ps.sort((a,b)=>(b.updated||0)-(a.updated||0));
+  const el=$('#lb');
+  if(!db.projects.length){
+    el.innerHTML=`<div class="empty"><p>まだ案件がありません。<br>右下の「新規案件」から追加できます。</p><button class="btn" data-action="sample">サンプルを入れて見た目を確認</button></div>`;return;
+  }
+  if(!ps.length){el.innerHTML=`<div class="empty"><p>条件に合う案件がありません。</p></div>`;return}
+  el.innerHTML=`<p class="count">${ps.length}件</p>`+ps.map(p=>{
+    const d=dueText(p),pr=prog(p);
+    return `<div class="row p-${p.priority}" data-action="open" data-id="${p.id}" tabindex="0">
+      <div class="c-main"><div class="cust">${esc(p.customer||'顧客未設定')}</div><div class="pname">${esc(p.name)}</div></div>
+      <div class="c-pri"><span class="chip pri-${p.priority}">優先度 ${p.priority}</span></div>
+      <div class="c-st"><span class="chip st-${p.status}">${p.status}</span></div>
+      <div class="c-due due">期限 ${fmt(p.due)}<small class="${d.c}">${d.t}</small></div>
+      <div class="meter"><div class="bar"><i style="width:${pr}%"></i></div><span>${pr}%</span></div>
+    </div>`}).join('');
+}
+
+/* ========== 詳細 + ガント ========== */
+function renderDetail(){
+  const p=getP(state.pid); if(!p){state.view='list';return render()}
+  const d=dueText(p),pr=prog(p),inDay=!!state.day;
+  $('#app').innerHTML=`
+    <button class="back" data-action="back">← 案件一覧に戻る</button>
+    <div class="head">
+      <div class="printonly pdate">出力日：${pdate()}</div>
+      <div class="hr"><div style="min-width:0"><div class="cust">${esc(p.customer||'顧客未設定')}</div><h2>${esc(p.name)}</h2></div>
+        <button class="btn sm" data-action="edit-project">編集</button></div>
+      <div class="meta">
+        <span class="chip pri-${p.priority}">優先度 ${p.priority}</span>
+        <span class="chip st-${p.status}">${p.status}</span>
+        <span>期間 ${fmt(p.start)} 〜 ${fmt(p.due)}</span>
+        <span class="due"><small class="${d.c}" style="display:inline">${d.t}</small></span>
+        <span>進捗 ${pr}%</span>
+        ${p.remindAt?`<span>🔔 ${fmtDT(p.remindAt)}${p.remindDone?'（確認済み）':''}</span>`:''}
+      </div>
+      ${p.memo?`<p class="memo">${esc(p.memo)}</p>`:''}
+    </div>
+    <div class="gtools">
+      ${inDay?`
+        <button class="btn sm" data-action="day-close">← 全体表示に戻る</button>
+        <div class="seg" role="group" aria-label="日付の移動"><button data-action="day-shift" data-n="-1">‹ 前日</button><button data-action="day-shift" data-n="1">翌日 ›</button></div>`
+      :`
+        <div class="seg" role="group" aria-label="表示の広さ">
+          ${[[34,'広い'],[20,'標準'],[10,'狭い']].map(([z,l])=>`<button data-action="zoom" data-z="${z}" class="${state.zoom===z?'on':''}">${l}</button>`).join('')}
+        </div>
+        <button class="btn sm" data-action="today">今日へ移動</button>`}
+      <span class="sp"></span>
+      <button class="btn sm" data-action="print">印刷・PDF保存</button>
+    </div>
+    ${inDay?'':'<p class="hint2">日付の数字をクリックすると、その日の24時間表示に切り替わります。</p>'}
+    <div id="gwrap"></div>`;
+  $('#gwrap').innerHTML=inDay?dayView(p,state.day):gantt(p);
+  fab('add-task','＋ 工程を追加');
+  const g=$('#gantt'); if(g)g.scrollLeft=+g.dataset.sx||0;
+}
+
+function gantt(p){
+  const rows=ganttRows(p);
+  const ds=[today()];
+  [p.start,p.due].forEach(x=>x&&ds.push(x));
+  leaves(p).forEach(t=>{t.start&&ds.push(t.start);t.end&&ds.push(t.end)});
+  let min=ds.reduce((a,b)=>a<b?a:b), max=ds.reduce((a,b)=>a>b?a:b);
+  min=addDays(min,-3); max=addDays(max,7);
+  if(dd(min,max)<27)max=addDays(min,27);
+  const n=dd(min,max)+1, dw=state.zoom, LW=innerWidth<600?124:190, HH=52, RH=44, TW=n*dw;
+  // header
+  let mo='',dy='',curM=null,startI=0;
+  const monthEnd=()=>{ if(curM!==null)mo+=`<div class="mo" style="left:${startI*dw}px">${curM}</div>` };
+  for(let i=0;i<n;i++){
+    const ds_=addDays(min,i),d=pd(ds_),lab=`${d.getFullYear()}年${d.getMonth()+1}月`;
+    if(lab!==curM){monthEnd();curM=lab;startI=i}
+    const we=d.getDay()===0||d.getDay()===6, td=ds_===today();
+    const show=dw>=20||d.getDay()===1||td;
+    dy+=`<div class="dy ${we?'we':''} ${td?'td':''}" data-action="day" data-date="${ds_}" title="${d.getMonth()+1}/${d.getDate()}の時間表示" style="left:${i*dw}px;width:${dw}px">${show?d.getDate():''}${dw>=30?`<br>${'日月火水木金土'[d.getDay()]}`:''}</div>`;
+  }
+  monthEnd();
+  // background
+  let bg='';
+  for(let i=0;i<n;i++){
+    const ds_=addDays(min,i),d=pd(ds_),we=d.getDay()===0||d.getDay()===6,td=ds_===today();
+    if(we||td)bg+=`<div class="c ${td?'td':'we'}" style="left:${i*dw}px;width:${dw}px"></div>`;
+  }
+  const tx=dd(min,today())*dw;
+  bg+=`<div class="tl" style="left:${tx+Math.floor(dw/2)-1}px"></div>`;
+  const bar=(s,e,progress,cls,label,color)=>{
+    if(!s||!e)return'';
+    if(e<s)[s,e]=[e,s];
+    const l=dd(min,s)*dw, w=(dd(s,e)+1)*dw;
+    return `<div class="gbar ${cls}" style="left:${l}px;width:${w}px${color?`;--c:${color}`:''}"><i style="width:${progress}%"></i>${label&&w>=48?`<span>${label}</span>`:''}</div>`;
+  };
+  const pr=prog(p);
+  let body=`<div class="gr" data-action="edit-project" style="height:${RH}px"><div class="gl pj" style="width:${LW}px"><div class="gtx"><b>案件全体</b><small>${fmt(p.start)}〜${fmt(p.due)} ・ ${pr}%</small></div></div><div class="gt" style="width:${TW}px">${bar(p.start||p.due,p.due||p.start,pr,'pjb',pr+'%')}</div></div>`;
+  rows.forEach(r=>{
+    const t=r.t,e=r.e;
+    const late=e.end&&e.end<today()&&e.progress<100;
+    const color=r.kid?(t.color||PAL[0]):null;
+    body+=`<div class="gr" data-action="edit-task" data-id="${t.id}" style="height:${RH}px">
+      <div class="gl ${r.par?'par':''} ${r.kid?'kid':''}" style="width:${LW}px">${r.kid?`<i class="dot" style="background:${color}"></i>`:''}<div class="gtx"><b>${esc(t.name)}</b><small>${e.start?fmt(e.start)+'〜'+fmt(e.end):'日程未設定'} ・ ${e.progress}%${t.assignee?' ・ '+esc(t.assignee):''}</small></div>${!r.kid?`<button class="addkid" data-action="add-child" data-id="${t.id}" title="子工程を追加" aria-label="子工程を追加">＋</button>`:''}</div>
+      <div class="gt" style="width:${TW}px">${bar(e.start,e.end,e.progress,late?'late':'',e.progress+'%',color)}</div></div>`;
+  });
+  if(!rows.length)body+=`<div class="gempty" style="position:sticky;left:0;width:min(100%,${LW+TW}px)">工程がまだありません。右下の「工程を追加」から入力してください。</div>`;
+  const H=(1+rows.length)*RH+(rows.length?0:60);
+  return `<div class="gantt" id="gantt" data-sx="${Math.max(0,tx-90)}"><div class="gi" style="width:${LW+TW}px">
+    <div class="gh" style="height:${HH}px"><div class="corner" style="width:${LW}px;height:${HH}px">工程</div><div class="gt" style="width:${TW}px;height:${HH}px">${mo}${dy}</div></div>
+    <div class="gbg" style="left:${LW}px;top:${HH}px;width:${TW}px;height:${H}px">${bg}</div>
+    ${body}
+  </div></div>`;
+}
+
+/* 1日の24時間表示 */
+function dayView(p,date){
+  const dt=pd(date), wd='日月火水木金土'[dt.getDay()];
+  const hw=innerWidth<600?44:54, LW=innerWidth<600?124:190, HH=34, RH=52, TW=24*hw;
+  const items=[];
+  ganttRows(p).forEach(r=>{
+    if(r.par)return;
+    const seg=segFor(r.t,date); if(!seg)return;
+    const par=r.kid?p.tasks.find(x=>x.id===r.t.parentId):null;
+    items.push({t:r.t,seg,par,e:r.e,color:r.kid?(r.t.color||PAL[0]):null});
+  });
+  items.sort((a,b)=>a.seg.s-b.seg.s);
+  let hrs='',bg='';
+  for(let i=0;i<24;i++){
+    hrs+=`<div class="dy" style="left:${i*hw}px;width:${hw}px;height:${HH}px;line-height:${HH-4}px;padding-top:0">${i}時</div>`;
+    if(i<6||i>=22)bg+=`<div class="c we" style="left:${i*hw}px;width:${hw}px"></div>`;
+  }
+  const isToday=date===today();
+  if(isToday){const n=new Date();bg+=`<div class="tl" style="left:${(n.getHours()*60+n.getMinutes())/60*hw}px"></div>`}
+  const body=items.map(it=>{
+    const {t,seg,par,color,e}=it;
+    const times=seg.all?'終日':`${hm(seg.s)}–${hm(seg.e)}`;
+    const l=seg.s/60*hw, w=(seg.e-seg.s)/60*hw;
+    return `<div class="gr" data-action="edit-task" data-id="${t.id}" style="height:${RH}px">
+      <div class="gl ${color?'kid':''}" style="width:${LW}px">${color?`<i class="dot" style="background:${color}"></i>`:''}<div class="gtx"><b>${esc(t.name)}</b><small>${par?esc(par.name)+' ・ ':''}${times}</small></div></div>
+      <div class="gt" style="width:${TW}px"><div class="gbar ${seg.all?'allday':''}" style="left:${l}px;width:${w}px;top:13px${color?`;--c:${color}`:''}"><i style="width:${e.progress}%"></i><span>${times}${w>=170?' ・ '+e.progress+'%':''}</span></div></div></div>`;
+  }).join('');
+  const sx=isToday?Math.max(0,(new Date().getHours()-1)*hw):7*hw;
+  const H=items.length?items.length*RH:60;
+  return `<h3 class="dayttl">${dt.getMonth()+1}月${dt.getDate()}日（${wd}）の予定<small>${items.length}件</small></h3>
+  <div class="gantt" id="gantt" data-sx="${sx}"><div class="gi" style="width:${LW+TW}px">
+    <div class="gh" style="height:${HH}px"><div class="corner" style="width:${LW}px;height:${HH}px;padding-bottom:8px">工程</div><div class="gt" style="width:${TW}px;height:${HH}px">${hrs}</div></div>
+    <div class="gbg" style="left:${LW}px;top:${HH}px;width:${TW}px;height:${H}px">${bg}</div>
+    ${body||`<div class="gempty" style="position:sticky;left:0;width:min(100%,${LW+TW}px)">この日の工程はありません。</div>`}
+  </div></div>`;
+}
+
+/* ========== モーダル ========== */
+function modal(title,html,onSubmit){
+  closeModal();
+  const ov=document.createElement('div');ov.className='ov';ov.id='ov';
+  ov.innerHTML=`<form class="md" novalidate><h3>${title}</h3>${html}</form>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('mousedown',e=>{if(e.target===ov)closeModal()});
+  const form=ov.querySelector('form');
+  form.addEventListener('submit',e=>{
+    e.preventDefault();
+    try{onSubmit&&onSubmit(new FormData(form),form)}
+    catch(err){console.error(err);toast('保存できませんでした：'+(err&&err.message?err.message:'不明なエラー'))}
+  });
+  const first=form.querySelector('input:not([type=hidden]),textarea');if(first&&innerWidth>600)first.focus();
+  return form;
+}
+function closeModal(){const o=$('#ov');if(o)o.remove()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+const field=(label,inner,hint)=>`<div class="f"><label>${label}</label>${inner}${hint?`<div class="hint">${hint}</div>`:''}</div>`;
+const opts=(arr,cur)=>arr.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');
+
+function projectForm(id){
+  const p=id?getP(id):{customer:'',name:'',priority:'中',status:'未着手',start:today(),due:'',progress:0,remindAt:'',memo:''};
+  const hasTasks=p.tasks&&p.tasks.length;
+  modal(id?'案件を編集':'新規案件',`
+    ${field('顧客名',`<input name="customer" value="${esc(p.customer)}" placeholder="例：○○株式会社">`)}
+    ${field('案件名 *',`<input name="name" value="${esc(p.name)}" placeholder="例：ネットワーク機器入替" required>`)}
+    <div class="f2">
+      ${field('優先度',`<select name="priority">${opts(PRI,p.priority)}</select>`)}
+      ${field('ステータス',`<select name="status">${opts(STA,p.status)}</select>`)}
+    </div>
+    <div class="f2">
+      ${field('開始日',`<input type="date" name="start" value="${p.start||''}">`)}
+      ${field('期限',`<input type="date" name="due" value="${p.due||''}">`)}
+    </div>
+    ${hasTasks?'':field('進捗（%）',`<input type="number" name="progress" min="0" max="100" value="${+p.progress||0}" inputmode="numeric">`,'工程を追加すると、工程の進捗から自動計算されます')}
+    ${field('リマインド日時',`<input type="datetime-local" name="remindAt" value="${p.remindAt||''}">`)}
+    ${field('メモ',`<textarea name="memo" placeholder="担当者、連絡先、注意点など">${esc(p.memo||'')}</textarea>`)}
+    <div class="acts">${id?'<button type="button" class="btn danger l" id="del">削除</button>':''}<button type="button" class="btn" id="cancel">キャンセル</button><button class="btn primary">保存</button></div>
+  `,(fd)=>{
+    const name=fd.get('name').trim();
+    if(!name){toast('案件名を入力してください');return}
+    const s=fd.get('start'),e=fd.get('due');
+    if(s&&e&&e<s){toast('期限は開始日より後にしてください');return}
+    const rem=fd.get('remindAt');
+    const obj=id?p:{id:uid(),tasks:[]};
+    Object.assign(obj,{customer:fd.get('customer').trim(),name,priority:fd.get('priority'),status:fd.get('status'),start:s,due:e,memo:fd.get('memo'),updated:Date.now()});
+    if(fd.has('progress'))obj.progress=Math.min(100,Math.max(0,+fd.get('progress')||0));
+    if(rem!==(p.remindAt||''))obj.remindDone=false;
+    obj.remindAt=rem;
+    if(!id)db.projects.push(obj);
+    save();closeModal();render();toast('保存しました');
+  });
+  $('#cancel').onclick=closeModal;
+  const del=$('#del');if(del)del.onclick=()=>{if(confirm('この案件と工程をすべて削除します。よろしいですか？')){db.projects=db.projects.filter(x=>x.id!==id);save();closeModal();state.view='list';render()}};
+}
+function taskForm(pid,tid,presetParent){
+  const p=getP(pid);
+  const ex=tid?p.tasks.find(x=>x.id===tid):null;
+  const hasKids=!!ex&&p.tasks.some(x=>x.parentId===tid);
+  const parent0=ex?(ex.parentId||''):(presetParent||'');
+  const baseStart=state.day||today();
+  let t=ex;
+  if(!t){
+    let s=baseStart,e=addDays(baseStart,p.due&&p.due>baseStart?Math.min(6,dd(baseStart,p.due)):6);
+    if(presetParent){const pt=p.tasks.find(x=>x.id===presetParent);const ef=pt&&eff(p,pt);if(ef&&ef.start){s=ef.start;e=ef.end}}
+    t={name:'',assignee:'',start:s,end:e,progress:0,remindAt:'',memo:'',startTime:'',endTime:'',timeMode:'daily',color:PAL[p.tasks.filter(x=>x.parentId).length%PAL.length]};
+  }
+  const parOpts=`<option value="">（なし：親工程、または単独の工程）</option>`+p.tasks.filter(x=>!x.parentId&&x.id!==tid).map(x=>`<option value="${x.id}" ${x.id===parent0?'selected':''}>${esc(x.name)}</option>`).join('');
+  const curColor=t.color||PAL[0];
+  const sw=PAL.map(c=>`<label class="sw"><input type="radio" name="color" value="${c}" ${curColor===c?'checked':''}><span style="background:${c}"></span></label>`).join('');
+  const title=tid?(hasKids?'親工程を編集':'工程を編集'):(presetParent?'子工程を追加':'工程を追加');
+  const form=modal(title,`
+    ${hasKids?'<p class="note">この親工程には子工程があります。日程と進捗は、子工程から自動で計算されます。</p>':''}
+    ${field('親工程',`<select name="parentId" id="parSel" ${hasKids?'disabled':''}>${parOpts}</select>`,hasKids?'':'親工程を選ぶと、その下の「子工程」として表示されます（例：現地調査 ＞ 1階）')}
+    ${field('工程名 *',`<input name="name" value="${esc(t.name)}" placeholder="例：現地調査、1階、2階、切替作業" required>`)}
+    ${field('担当',`<input name="assignee" value="${esc(t.assignee||'')}">`)}
+    <div id="colorBox" ${parent0?'':'hidden'}>${field('色（子工程ごとに変えられます）',`<div class="sws">${sw}</div>`)}</div>
+    ${hasKids?'':`
+      <div class="f2">
+        ${field('開始日',`<input type="date" name="start" value="${t.start||''}">`)}
+        ${field('終了日',`<input type="date" name="end" value="${t.end||''}">`)}
+      </div>
+      <div class="f2">
+        ${field('開始時刻（任意）',`<input type="time" name="startTime" value="${t.startTime||''}">`)}
+        ${field('終了時刻（任意）',`<input type="time" name="endTime" value="${t.endTime||''}">`)}
+      </div>
+      ${field('時刻の使い方',`<select name="timeMode"><option value="daily" ${t.timeMode!=='span'?'selected':''}>毎日同じ時間帯（例：毎日 9:00〜17:00）</option><option value="span" ${t.timeMode==='span'?'selected':''}>開始日の開始時刻 〜 終了日の終了時刻（連続）</option></select>`,'時刻を入れない場合は「終日」として24時間表示に出ます。夜間作業など日をまたぐ場合は「連続」を選んでください')}
+      ${field('進捗（%）',`<input type="number" name="progress" min="0" max="100" step="5" value="${+t.progress||0}" inputmode="numeric">`)}
+    `}
+    ${field('リマインド日時',`<input type="datetime-local" name="remindAt" value="${t.remindAt||''}">`)}
+    ${field('メモ',`<textarea name="memo">${esc(t.memo||'')}</textarea>`)}
+    <div class="acts">${tid?'<button type="button" class="btn danger l" id="del">削除</button>':''}<button type="button" class="btn" id="cancel">キャンセル</button><button class="btn primary">保存</button></div>
+  `,(fd)=>{
+    const name=fd.get('name').trim();
+    if(!name){toast('工程名を入力してください');return}
+    const obj=tid?ex:{id:uid()};
+    if(!hasKids){
+      const s=fd.get('start'),e=fd.get('end');
+      if(!s||!e){toast('開始日と終了日を入力してください');return}
+      if(e<s){toast('終了日は開始日より後にしてください');return}
+      const st=fd.get('startTime'),et=fd.get('endTime'),mode=fd.get('timeMode');
+      if(st&&et&&(mode==='daily'||s===e)&&et<=st){toast('終了時刻は開始時刻より後にしてください');return}
+      Object.assign(obj,{start:s,end:e,startTime:st,endTime:et,timeMode:mode,progress:Math.min(100,Math.max(0,+fd.get('progress')||0))});
+    }
+    const rem=fd.get('remindAt');
+    if(rem!==(t.remindAt||''))obj.remindDone=false;
+    Object.assign(obj,{name,assignee:fd.get('assignee').trim(),memo:fd.get('memo'),remindAt:rem,parentId:hasKids?'':(fd.get('parentId')||'')});
+    if(obj.parentId)obj.color=fd.get('color')||PAL[0];
+    if(!tid)p.tasks.push(obj);
+    p.updated=Date.now();
+    save();closeModal();render();toast('保存しました');
+  });
+  $('#cancel').onclick=closeModal;
+  const sel=$('#parSel');if(sel)sel.onchange=()=>{$('#colorBox').hidden=!sel.value};
+  const del=$('#del');if(del)del.onclick=()=>{
+    const kn=p.tasks.filter(x=>x.parentId===tid).length;
+    if(confirm(kn?`この親工程と子工程${kn}件を削除しますか？`:'この工程を削除しますか？')){
+      p.tasks=p.tasks.filter(x=>x.id!==tid&&x.parentId!==tid);p.updated=Date.now();save();closeModal();render();
+    }
+  };
+}
+
+/* ========== 設定・同期・バックアップ ========== */
+function settingsForm(){
+  const notif='Notification' in window?Notification.permission:'unsupported';
+  const form=modal('設定・同期',`
+    <div class="sect" style="border:0;margin:0;padding:0">
+      <h4>スマホとPCでデータを共有（GitHubに保存）</h4>
+      <p class="note">データ保存用に<b>非公開（Private）のリポジトリ</b>を作り、その名前とアクセストークンを入力します。入力した情報はこの端末のブラウザ内だけに保存されます。スマホとPCの両方で同じ設定をしてください。</p>
+      ${field('GitHubのユーザー名',`<input name="owner" value="${esc(cfg.owner||'')}" autocapitalize="off" autocomplete="off">`)}
+      ${field('データ保存用リポジトリ名',`<input name="repo" value="${esc(cfg.repo||'')}" autocapitalize="off" autocomplete="off" placeholder="例：anken-data">`)}
+      ${field('保存するファイル名',`<input name="path" value="${esc(cfg.path||'data.json')}" autocapitalize="off">`)}
+      ${field('アクセストークン',`<input type="password" name="token" value="${esc(cfg.token||'')}" autocomplete="off" placeholder="github_pat_...">`,'Fine-grained token で、そのリポジトリだけ・Contents を「Read and write」にしてください')}
+      <div class="acts">
+        <button type="button" class="btn sm" id="pull">クラウドから読み込む</button>
+        <button type="button" class="btn sm" id="push">クラウドに保存</button>
+        <button class="btn primary sm">設定を保存して同期</button>
+      </div>
+    </div>
+    <div class="sect"><h4>リマインド通知</h4>
+      <p class="note">${notif==='granted'?'このブラウザの通知は許可済みです。':notif==='denied'?'通知がブロックされています。ブラウザの設定から許可してください。':notif==='unsupported'?'このブラウザは通知に対応していません。アプリを開いたときの画面上の表示で確認できます。':'許可すると、アプリを開いている間、時間になったときに通知します。'}</p>
+      ${notif==='default'?'<button type="button" class="btn sm" id="notif">通知を許可する</button>':''}
+    </div>
+    <div class="sect"><h4>バックアップ</h4>
+      <div class="acts" style="justify-content:flex-start;margin:0">
+        <button type="button" class="btn sm" id="exp">ファイルに書き出す</button>
+        <button type="button" class="btn sm" id="imp">ファイルから読み込む</button>
+        <input type="file" id="file" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <div class="acts" style="margin-top:14px"><button type="button" class="btn" id="cancel">閉じる</button></div>
+  `,(fd)=>{
+    cfg.owner=fd.get('owner').trim();cfg.repo=fd.get('repo').trim();cfg.path=(fd.get('path').trim()||'data.json').replace(/^\/+/,'');cfg.token=fd.get('token').trim();
+    if(!synced()){saveCfg();toast('同期を使うには3項目すべて入力してください');return}
+    cfg.dirty=true;saveCfg();closeModal();sync('auto');
+  });
+  const readCfg=()=>{const fd=new FormData(form);cfg.owner=fd.get('owner').trim();cfg.repo=fd.get('repo').trim();cfg.path=(fd.get('path').trim()||'data.json').replace(/^\/+/,'');cfg.token=fd.get('token').trim();saveCfg();return synced()};
+  $('#cancel').onclick=closeModal;
+  $('#pull').onclick=()=>{if(!readCfg())return toast('先に3項目を入力してください');closeModal();sync('pull')};
+  $('#push').onclick=()=>{if(!readCfg())return toast('先に3項目を入力してください');closeModal();sync('push')};
+  const nb=$('#notif');if(nb)nb.onclick=async()=>{try{await Notification.requestPermission()}catch(e){}settingsForm()};
+  $('#exp').onclick=()=>{
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));
+    a.download=`anken-backup-${today()}.json`;document.body.appendChild(a);a.click();a.remove();
+  };
+  $('#imp').onclick=()=>$('#file').click();
+  $('#file').onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{const d=JSON.parse(await f.text());if(!Array.isArray(d.projects))throw 0;
+      if(!confirm('今のデータを、読み込んだファイルの内容で置き換えます。よろしいですか？'))return;
+      db=d;save();closeModal();state.view='list';render();toast('読み込みました');
+    }catch(err){toast('読み込めませんでした。バックアップファイルを選んでください')}
+  };
+}
+
+/* GitHub 同期 */
+let syncing=false,syncTimer=null;
+function setSync(text,cls){const el=$('#syncState');if(!synced()){el.style.display='none';return}el.style.display='';el.textContent=text;el.className='pill '+(cls||'')}
+const apiUrl=c=>`https://api.github.com/repos/${encodeURIComponent(c.owner)}/${encodeURIComponent(c.repo)}/contents/${c.path.split('/').map(encodeURIComponent).join('/')}`;
+const hdr=c=>({Authorization:'Bearer '+c.token,Accept:'application/vnd.github+json'});
+async function ghGet(c){
+  const r=await fetch(apiUrl(c)+'?t='+Date.now(),{headers:hdr(c),cache:'no-store'});
+  if(r.status===404)return null;
+  if(r.status===401)throw new Error('トークンが正しくないか、期限切れです');
+  if(!r.ok)throw new Error('GitHubに接続できませんでした（'+r.status+'）');
+  const j=await r.json();
+  return{sha:j.sha,data:JSON.parse(b64dec(j.content.replace(/\n/g,'')))};
+}
+async function ghPush(c,sha){
+  const body={message:'update '+new Date().toISOString(),content:b64enc(JSON.stringify(db))};
+  if(sha)body.sha=sha;
+  const r=await fetch(apiUrl(c),{method:'PUT',headers:{...hdr(c),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.status===404)throw new Error('リポジトリ名かトークンの権限を確認してください');
+  if(r.status===401||r.status===403)throw new Error('トークンの権限が足りません（Contents: Read and write が必要です）');
+  if(r.status===409||r.status===422)throw new Error('他の端末と同時に更新されました。もう一度同期してください');
+  if(!r.ok)throw new Error('保存できませんでした（'+r.status+'）');
+  cfg.base=db.updatedAt;cfg.dirty=false;saveCfg();
+}
+function take(remote){db=remote.data;try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}cfg.base=db.updatedAt||0;cfg.dirty=false;saveCfg()}
+async function sync(mode){
+  if(!synced()||syncing)return;
+  syncing=true;setSync('同期中…','busy');
+  try{
+    const remote=await ghGet(cfg);
+    if(mode==='push'){await ghPush(cfg,remote?remote.sha:undefined)}
+    else if(!remote){await ghPush(cfg)}
+    else{
+      const rt=remote.data.updatedAt||0;
+      if(mode==='pull'){
+        if(!cfg.dirty||confirm('この端末の未保存の変更が消えます。クラウドの内容を読み込みますか？'))take(remote);
+      }else if(rt===cfg.base){ if(cfg.dirty)await ghPush(cfg,remote.sha) }
+      else if(!cfg.dirty){take(remote)}
+      else if(confirm('クラウドとこの端末の両方に変更があります。\nOK＝この端末の内容でクラウドを上書き\nキャンセル＝クラウドの内容を読み込む'))await ghPush(cfg,remote.sha);
+      else take(remote);
+    }
+    setSync('同期済み','ok');
+  }catch(e){setSync('同期エラー','err');toast(e.message||'同期に失敗しました')}
+  finally{syncing=false;render()}
+}
+function scheduleSync(){setSync('未同期','');clearTimeout(syncTimer);syncTimer=setTimeout(()=>sync('auto'),2000)}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&synced()&&!cfg.dirty)sync('auto')});
+
+/* ========== リマインド ========== */
+function dueReminders(){
+  const now=Date.now(),out=[];
+  db.projects.forEach(p=>{
+    if(p.remindAt&&!p.remindDone&&new Date(p.remindAt).getTime()<=now)out.push({pid:p.id,tid:'',title:p.customer?`${p.customer} / ${p.name}`:p.name,sub:'案件',at:p.remindAt});
+    (p.tasks||[]).forEach(t=>{if(t.remindAt&&!t.remindDone&&new Date(t.remindAt).getTime()<=now)out.push({pid:p.id,tid:t.id,title:`${p.name} / ${t.name}`,sub:p.customer||'工程',at:t.remindAt})});
+  });
+  return out.sort((a,b)=>a.at.localeCompare(b.at));
+}
+let lastKey='',notified=new Set();
+function renderBanner(){
+  const r=dueReminders();
+  $('#banner').innerHTML=r.map(x=>`<div class="remind"><span>🔔</span><div class="rt" data-action="open" data-id="${x.pid}"><b>${esc(x.title)}</b><small>${esc(x.sub)}・${fmtDT(x.at)}</small></div><button data-action="ack" data-pid="${x.pid}" data-tid="${x.tid}">確認した</button></div>`).join('');
+  document.title=(r.length?`(${r.length}) `:'')+'案件管理';
+  return r;
+}
+function checkReminders(){
+  const r=dueReminders(),key=r.map(x=>x.pid+x.tid+x.at).join('|');
+  if(key!==lastKey){lastKey=key;renderBanner()}
+  r.forEach(x=>{
+    const k=x.pid+x.tid+x.at;
+    if(!notified.has(k)){notified.add(k);
+      if('Notification' in window&&Notification.permission==='granted'){try{new Notification('リマインド',{body:x.title})}catch(e){}}
+    }
+  });
+}
+setInterval(checkReminders,30000);
+
+/* ========== サンプル ========== */
+function addSample(){
+  const t=today(),T=(o)=>Object.assign({id:uid(),assignee:'自分',progress:0,remindAt:'',memo:'',startTime:'',endTime:'',timeMode:'daily'},o);
+  const a=uid(),b=uid(),c=uid();
+  db.projects.push({id:uid(),customer:'サンプル商事',name:'社内ネットワーク機器入替',priority:'高',status:'進行中',start:addDays(t,-5),due:addDays(t,20),progress:0,memo:'担当：情報システム部 山田様\n夜間切替の希望あり',remindAt:'',updated:Date.now(),tasks:[
+    T({id:a,name:'現地調査'}),
+    T({name:'1階',parentId:a,color:PAL[0],start:addDays(t,-3),end:addDays(t,-2),progress:100,startTime:'09:00',endTime:'17:00'}),
+    T({name:'2階',parentId:a,color:PAL[1],start:addDays(t,-1),end:addDays(t,1),progress:50,startTime:'09:00',endTime:'17:00'}),
+    T({id:b,name:'機器設定'}),
+    T({name:'ルーター',parentId:b,color:PAL[2],start:addDays(t,2),end:addDays(t,5),progress:20,startTime:'10:00',endTime:'16:00'}),
+    T({name:'スイッチ',parentId:b,color:PAL[3],start:addDays(t,4),end:addDays(t,8),progress:0}),
+    T({id:c,name:'切替作業'}),
+    T({name:'夜間切替',parentId:c,color:PAL[4],start:addDays(t,12),end:addDays(t,13),startTime:'22:00',endTime:'06:00',timeMode:'span'})]});
+  db.projects.push({id:uid(),customer:'△△工業',name:'Wi-Fi増設',priority:'中',status:'未着手',start:addDays(t,3),due:addDays(t,30),progress:0,memo:'',remindAt:'',updated:Date.now(),tasks:[]});
+  save();render();
+}
+
+/* ========== 描画・イベント ========== */
+function fab(action,label){$('#fabWrap').innerHTML=`<button class="fab" data-action="${action}">${label}</button>`}
+function render(){
+  if(state.view==='detail')renderDetail();else renderList();
+  renderBanner();
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-action]');if(!el)return;
+  const a=el.dataset.action;
+  if(a==='new')projectForm();
+  else if(a==='open'){state.view='detail';state.pid=el.dataset.id;state.day=null;render();scrollTo(0,0)}
+  else if(a==='back'){state.view='list';state.day=null;render()}
+  else if(a==='edit-project')projectForm(state.pid);
+  else if(a==='add-task')taskForm(state.pid);
+  else if(a==='edit-task')taskForm(state.pid,el.dataset.id);
+  else if(a==='add-child')taskForm(state.pid,null,el.dataset.id);
+  else if(a==='day'){state.day=el.dataset.date;renderDetail()}
+  else if(a==='day-close'){state.day=null;renderDetail()}
+  else if(a==='day-shift'){state.day=addDays(state.day,+el.dataset.n);renderDetail()}
+  else if(a==='print')window.print();
+  else if(a==='zoom'){state.zoom=+el.dataset.z;render()}
+  else if(a==='today'){const g=$('#gantt');if(g)g.scrollTo({left:+g.dataset.sx||0,behavior:'smooth'})}
+  else if(a==='settings')settingsForm();
+  else if(a==='sample')addSample();
+  else if(a==='ack'){
+    const p=getP(el.dataset.pid);if(!p)return;
+    if(el.dataset.tid){const t=p.tasks.find(x=>x.id===el.dataset.tid);if(t)t.remindDone=true}else p.remindDone=true;
+    save();render();
+  }
+});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('row')){e.preventDefault();e.target.click()}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){state.q=e.target.value;renderListBody()}});
+document.addEventListener('change',e=>{
+  if(e.target.id==='flt'){state.filter=e.target.value;renderListBody()}
+  if(e.target.id==='srt'){state.sort=e.target.value;renderListBody()}
+});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(state.view==='detail'&&!$('#ov'))renderDetail()},200)});
+
+addEventListener('beforeprint',()=>{
+  document.querySelectorAll('.gantt').forEach(g=>{
+    const gi=g.querySelector('.gi');if(!gi)return;
+    const sc=Math.min(1,1000/gi.offsetWidth);
+    gi.style.transformOrigin='0 0';gi.style.transform=`scale(${sc})`;
+    g.style.height=(gi.offsetHeight*sc+2)+'px';
+  });
+});
+addEventListener('afterprint',()=>{
+  document.querySelectorAll('.gantt').forEach(g=>{const gi=g.querySelector('.gi');if(gi){gi.style.transform='';gi.style.transformOrigin=''}g.style.height=''});
+});
+
+render();
+setSync(cfg.dirty?'未同期':'同期済み','');
+if(synced())sync('auto');
+checkReminders();
+</script>
+</body>
+</html>
